@@ -3,7 +3,7 @@ run-name: 同步上游dsh-purge ${{ github.sha }}
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -25,7 +25,8 @@ jobs:
 
       - name: 添加上游并获取全部分支与标签
         run: |
-          git remote add upstream https://github.com/kingcharleslzzy-ai/dsh-purge.git
+          git remote remove upstream >/dev/null 2>&1 || true
+          git remote add upstream https://github.com/kingcharleslzy-ai/dsh-purge.git
           git fetch upstream --prune --tags
 
       - name: 同步上游默认分支到本仓库master
@@ -55,7 +56,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: 检查并创建Tag和Release
+      - name: 棘查并创建Tag和Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -68,6 +69,6 @@ jobs:
             git push origin "$TAG"
             gh release create "$TAG" \
               --title "dsh-purge $TAG" \
-              --notes "自动同步上游 kingcharleslzzy-ai/dsh-purge 最新内容；当前版本：$TAG；安全警告：网络安全未更新时可能自动重启"
+              --notes "自动同步上游 kingcharleslzy-ai/dsh-purge 最新内容；当前版本：$TAG；安全警告：网络安全未更新时可能自动重启"
             echo "🎉 新版本Tag和Release $TAG"
           fi
