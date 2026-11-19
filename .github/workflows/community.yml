@@ -1,55 +1,76 @@
 name: 同步上游dsh-purge & 自动Release
 run-name: 同步上游dsh-purge ${{ github.sha }}
+
 on:
   schedule:
-    - cron: '0 * * * *' # UTC每小时整点执行
+    - cron: '0 * * * *' # UTC整点检查更新
   workflow_dispatch:
+
 jobs:
   sync:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: 检出本仓库
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
       - name: 配置Git身份
         run: |
           git config --global user.name "DSH Sync Bot"
           git config --global user.email "bot@example.com"
-      - name: 添加上游仓库源
+
+      - name: 添加上游并获取全部分支与标签
         run: |
-          git remote add upstream https://github.com/kingcharleslzy-ai/dsh-purge.git
-          git fetch upstream --tags
-      - name: 强制同步上游main到本仓库master
+          git remote add upstream https://github.com/kingcharleslzzy-ai/dsh-purge.git
+          git fetch upstream --prune --tags
+
+      - name: 同步上游默认分支到本仓库master
         run: |
+          UPSTREAM_DEFAULT=$(git remote show upstream | sed -n 's/.*HEAD branch: //p')
+
+          if [ -z "$UPSTREAM_DEFAULT" ]; then
+            echo "无法检测上游默认分支"
+            exit 1
+          fi
+
+          echo "检测到上游默认分支: $UPSTREAM_DEFAULT"
           git checkout master
-          git reset --hard upstream/main
+          git reset --hard "upstream/$UPSTREAM_DEFAULT"
           git push origin master --force-with-lease
-      - name: 读取版本号
+
+      - name: 获取版本号
         id: get_version
         run: |
           VER=$(node -p "require('./package.json').version")
           TAG="v${VER}"
-          echo "version=$VER" >> $GITHUB_OUTPUT
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-      - name: 安装gh CLI
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: 安装Node环境
         uses: actions/setup-node@v5
         with:
           node-version: 22
-      - name: 判断Tag是否存在，不存在则打Tag并发布Release
+
+      - name: 检查并创建Tag自动Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG=${{ steps.get_version.outputs.tag }}
-          if gh api repos/${{ github.repository }}/git/ref/tags/$TAG >/dev/null 2>&1; then
-            echo "✅ Tag $TAG 已存在，跳过发布Release"
+          TAG="${{ steps.get_version.outputs.tag }}"
+
+          if gh api "repos/${{ github.repository }}/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "✅ Tag $TAG 已存在，跳过创建和Release"
           else
-            git tag -a $TAG -m "Auto sync upstream dsh-purge, version $TAG"
-            git push origin $TAG
-            gh release create $TAG \
+            git tag -a "$TAG" -m "Auto sync upstream dsh-purge, version $TAG"
+            git push origin "$TAG"
+            gh release create "$TAG" \
               --title "dsh-purge $TAG" \
-              --notes "自动同步上游 kingcharleslzy-ai/dsh-purge 最新代码 \n上游版本：$TAG \n流水线自动生成"
-            echo "🎉 已创建Tag和Release $TAG"
+              --notes "自动同步上游 kingcharleslzzy-ai/dsh-purge 最新内容
+
+当前版本：$TAG
+安全警告：网络安全未更新时可能自动重启"
+            echo "🎉 新版本Tag和Release $TAG"
           fi
