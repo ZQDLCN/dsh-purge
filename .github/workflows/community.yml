@@ -3,7 +3,7 @@ run-name: 同步上游dsh-purge ${{ github.sha }}
 
 on:
   schedule:
-    - cron: '0 * * * *' # UTC整点检查更新
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -55,7 +55,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: 检查并创建Tag自动Release
+      - name: 检查并创建Tag和Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -68,9 +68,6 @@ jobs:
             git push origin "$TAG"
             gh release create "$TAG" \
               --title "dsh-purge $TAG" \
-              --notes "自动同步上游 kingcharleslzzy-ai/dsh-purge 最新内容
-
-当前版本：$TAG
-安全警告：网络安全未更新时可能自动重启"
+              --notes "自动同步上游 kingcharleslzzy-ai/dsh-purge 最新内容；当前版本：$TAG；安全警告：网络安全未更新时可能自动重启"
             echo "🎉 新版本Tag和Release $TAG"
           fi
